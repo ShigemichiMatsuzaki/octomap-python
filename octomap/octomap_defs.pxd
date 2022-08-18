@@ -54,6 +54,19 @@ cdef extern from "octomap/OcTreeNode.h" namespace "octomap":
         void setLogOdds(float l)
         bool hasChildren()
 
+cdef extern from "octomap/SemanticOcTree.h" namespace "octomap":
+    cdef cppclass SemanticOcTreeNode:
+        SemanticOcTreeNode() except +
+        void addValue(float& p)
+        bool childExists(unsigned int i)
+        float getValue()
+        void setValue(float v)
+        double getOccupancy()
+        SemanticOcTreeNode* getChild(unsigned int i)
+        float getLogOdds()
+        void setLogOdds(float l)
+        bool hasChildren()
+
 cdef extern from "octomap/OcTreeKey.h" namespace "octomap":
     cdef cppclass OcTreeKey:
         OcTreeKey() except +
@@ -192,3 +205,97 @@ cdef extern from "include_and_setting.h" namespace "octomap":
         bool isNodeCollapsible(const OcTreeNode* node)
         void deleteNodeChild(OcTreeNode *node, unsigned int childIdx)
         bool pruneNode(OcTreeNode *node)
+
+    cdef cppclass SemanticOcTree:
+        SemanticOcTree(double resolution) except +
+        # SemanticOcTree(string _filename) except +
+        OcTreeKey adjustKeyAtDepth(OcTreeKey& key, unsigned int depth)
+        unsigned short int adjustKeyAtDepth(unsigned short int key, unsigned int depth)
+        bool bbxSet()
+        size_t calcNumNodes()
+        void clear()
+        OcTreeKey coordToKey(point3d& coord)
+        OcTreeKey coordToKey(point3d& coord, unsigned int depth)
+        bool coordToKeyChecked(point3d& coord, OcTreeKey& key)
+        bool coordToKeyChecked(point3d& coord, unsigned int depth, OcTreeKey& key)
+        bool deleteNode(point3d& value, unsigned int depth)
+        bool castRay(point3d& origin, point3d& direction, point3d& end,
+                     bool ignoreUnknownCells, double maxRange)
+        SemanticOcTree* read(string& filename)
+        SemanticOcTree* read(istream& s)
+        bool write(string& filename)
+        bool write(ostream& s)
+        bool readBinary(string& filename)
+        bool readBinary(istream& s)
+        bool writeBinary(string& filename)
+        bool writeBinary(ostream& s)
+        bool isNodeOccupied(SemanticOcTreeNode& occupancyNode)
+        bool isNodeAtThreshold(SemanticOcTreeNode& occupancyNode)
+        void insertPointCloud(Pointcloud& scan, point3d& sensor_origin,
+                              double maxrange, bool lazy_eval, bool discretize)
+        OccupancyOcTreeBase[SemanticOcTreeNode].tree_iterator begin_tree(unsigned char maxDepth) except +
+        OccupancyOcTreeBase[SemanticOcTreeNode].tree_iterator end_tree() except +
+        OccupancyOcTreeBase[SemanticOcTreeNode].leaf_iterator begin_leafs(unsigned char maxDepth) except +
+        OccupancyOcTreeBase[SemanticOcTreeNode].leaf_iterator end_leafs() except +
+        OccupancyOcTreeBase[SemanticOcTreeNode].leaf_bbx_iterator begin_leafs_bbx(point3d &min, point3d &max, unsigned char maxDepth) except +
+        OccupancyOcTreeBase[SemanticOcTreeNode].leaf_bbx_iterator end_leafs_bbx() except +
+        point3d getBBXBounds()
+        point3d getBBXCenter()
+        point3d getBBXMax()
+        point3d getBBXMin()
+        SemanticOcTreeNode* getRoot()
+        size_t getNumLeafNodes()
+        double getResolution()
+        unsigned int getTreeDepth()
+        string getTreeType()
+        bool inBBX(point3d& p)
+        point3d keyToCoord(OcTreeKey& key)
+        point3d keyToCoord(OcTreeKey& key, unsigned int depth)
+        unsigned long long memoryFullGrid()
+        size_t memoryUsage()
+        size_t memoryUsageNode()
+        void resetChangeDetection()
+        SemanticOcTreeNode* search(double x, double y, double z, unsigned int depth)
+        SemanticOcTreeNode* search(point3d& value, unsigned int depth)
+        SemanticOcTreeNode* search(OcTreeKey& key, unsigned int depth)
+        void setBBXMax(point3d& max)
+        void setBBXMin(point3d& min)
+        void setResolution(double r)
+        size_t size()
+        void toMaxLikelihood()
+        SemanticOcTreeNode* updateNode(double x, double y, double z, float log_odds_update, bool lazy_eval)
+        SemanticOcTreeNode* updateNode(double x, double y, double z, bool occupied, bool lazy_eval)
+        SemanticOcTreeNode* updateNode(OcTreeKey& key, float log_odds_update, bool lazy_eval)
+        SemanticOcTreeNode* updateNode(OcTreeKey& key, bool occupied, bool lazy_eval)
+        void updateInnerOccupancy()
+        void useBBXLimit(bool enable)
+        double volume()
+
+        double getClampingThresMax()
+        float getClampingThresMaxLog()
+        double getClampingThresMin()
+        float getClampingThresMinLog()
+
+        double getOccupancyThres()
+        float getOccupancyThresLog()
+        double getProbHit()
+        float getProbHitLog()
+        double getProbMiss()
+        float getProbMissLog()
+
+        void setClampingThresMax(double thresProb)
+        void setClampingThresMin(double thresProb)
+        void setOccupancyThres(double prob)
+        void setProbHit(double prob)
+        void setProbMiss(double prob)
+
+        void getMetricSize(double& x, double& y, double& z)
+        void getMetricMin(double& x, double& y, double& z)
+        void getMetricMax(double& x, double& y, double& z)
+
+        void expandNode(SemanticOcTreeNode* node)
+        SemanticOcTreeNode* createNodeChild(SemanticOcTreeNode *node, unsigned int childIdx)
+        SemanticOcTreeNode* getNodeChild(SemanticOcTreeNode *node, unsigned int childIdx)
+        bool isNodeCollapsible(const SemanticOcTreeNode* node)
+        void deleteNodeChild(SemanticOcTreeNode *node, unsigned int childIdx)
+        bool pruneNode(SemanticOcTreeNode *node)
