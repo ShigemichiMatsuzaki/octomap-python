@@ -8,3 +8,6 @@
 
 /src/
 !/src/octomap
+
+dist/
+octomap_python.egg-info/
