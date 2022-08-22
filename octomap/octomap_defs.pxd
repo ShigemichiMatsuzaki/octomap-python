@@ -55,17 +55,29 @@ cdef extern from "octomap/OcTreeNode.h" namespace "octomap":
         bool hasChildren()
 
 cdef extern from "octomap/SemanticOcTree.h" namespace "octomap":
-    cdef cppclass SemanticOcTreeNode:
+    cdef cppclass Semantics:
+        int id;
+        int est_category;
+        float confidence;
+
+        Semantics() except +
+        Semantics(int, int, float) except +
+        bint operator==(Semantics)
+        bint operator!=(Semantics)
+
+    cdef cppclass SemanticOcTreeNode(OcTreeNode):
         SemanticOcTreeNode() except +
-        void addValue(float& p)
+        bint operator==(SemanticOcTreeNode)
+
         bool childExists(unsigned int i)
-        float getValue()
+        # float getValue()
         void setValue(float v)
-        double getOccupancy()
+        # double getOccupancy()
         SemanticOcTreeNode* getChild(unsigned int i)
         float getLogOdds()
         void setLogOdds(float l)
         bool hasChildren()
+
 
 cdef extern from "octomap/OcTreeKey.h" namespace "octomap":
     cdef cppclass OcTreeKey:
@@ -299,3 +311,15 @@ cdef extern from "include_and_setting.h" namespace "octomap":
         bool isNodeCollapsible(const SemanticOcTreeNode* node)
         void deleteNodeChild(SemanticOcTreeNode *node, unsigned int childIdx)
         bool pruneNode(SemanticOcTreeNode *node)
+
+        # 
+        # Specifically for SemanticOcTree
+        # 
+        # set node color at given key or coordinate. Replaces previous color.
+        SemanticOcTreeNode* setNodeSemantics(OcTreeKey& key, int id, int est_category, float confidence)
+        SemanticOcTreeNode* setNodeSemantics(float x, float y, float z, int id, int est_category, float confidence) 
+        SemanticOcTreeNode* integrateNodeSemantics(OcTreeKey& key, int id, int est_category, float confidence)
+        SemanticOcTreeNode* integrateNodeSemantics(OcTreeKey& key)
+        SemanticOcTreeNode* integrateNodeSemantics(float x, float y, float z, int id, int est_category, float confidence) 
+        void insertPointCloudAndSemantics(Pointcloud& scan, point3d& sensor_origin, int id, int category, float confidence, double maxrange, bool lazy_eval, bool discretize)
+        # update inner nodes, sets color to average child color

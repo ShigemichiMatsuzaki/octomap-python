@@ -54,7 +54,8 @@ cdef class OcTreeNode:
     """
     cdef defs.OcTreeNode *thisptr
     def __cinit__(self):
-        pass
+        if type(self) is OcTreeNode:
+            self.thisptr = new defs.OcTreeNode()
     def __dealloc__(self):
         pass
     def addValue(self, float p):
@@ -922,63 +923,65 @@ cdef class OcTree:
         else:
             raise NullPointerException
 
-cdef class SemanticOcTreeNode:
+cdef class Semantics:
+    """
+    Semantic information
+    """
+    cdef defs.Semantics *thisptr
+    def __cinit__(self):
+        pass
+
+cdef class SemanticOcTreeNode(OcTreeNode):
     """
     Nodes to be used in OcTree.
     They represent 3d occupancy grid cells. "value" stores their log-odds occupancy.
     """
-    cdef defs.SemanticOcTreeNode *thisptr
+    cdef defs.SemanticOcTreeNode *semoctree_ptr
     def __cinit__(self):
+        self.semoctree_ptr = self.thisptr = new defs.SemanticOcTreeNode()
+
+    def copyData(self, SemanticOcTreeNode& from_):
+        # OcTreeNode::copyData(from_)
+        # this->semantic_info = from_.getSemanticInfo()
         pass
-    def __dealloc__(self):
-        pass
-    def addValue(self, float p):
-        """
-        adds p to the node's logOdds value (with no boundary / threshold checking!)
-        """
-        if self.thisptr:
-            self.thisptr.addValue(p)
-        else:
-            raise NullPointerException
-    def childExists(self, unsigned int i):
-        """
-        Safe test to check of the i-th child exists,
-        first tests if there are any children.
-        """
-        if self.thisptr:
-            return self.thisptr.childExists(i)
-        else:
-            raise NullPointerException
-    def getValue(self):
-        if self.thisptr:
-            return self.thisptr.getValue()
-        else:
-            raise NullPointerException
-    def setValue(self, float v):
-        if self.thisptr:
-            self.thisptr.setValue(v)
-        else:
-            raise NullPointerException
-    def getOccupancy(self):
-        if self.thisptr:
-            return self.thisptr.getOccupancy()
-        else:
-            raise NullPointerException
-    def getLogOdds(self):
-        if self.thisptr:
-            return self.thisptr.getLogOdds()
-        else:
-            raise NullPointerException
-    def setLogOdds(self, float l):
-        if self.thisptr:
-            self.thisptr.setLogOdds(l)
-        else:
-            raise NullPointerException
-    def hasChildren(self):
-        if self.thisptr:
-            return self.thisptr.hasChildren()
-        else:
-            raise NullPointerException
+
+    def getSemanticInfo(self):
+        return self.semoctree_ptr.getSemanticInfo()
+
+    """
+    inline void setSemanticInfo(Semantics s) { this->semantic_info = s; }
+    inline void setSemanticInfo(int id, int est_category, float confidence)
+    {
+        this->semantic_info = Semantics(id, est_category, confidence);
+    }
+    inline void clearSemanticInfo() {
+        this->semantic_info.id = -1;
+        this->semantic_info.est_category = -1;
+        this->semantic_info.confidence = 0.0;
+        this->semantic_info.category.clear();
+    }
+    inline void setId(int id) { this->semantic_info.id = id; }
+    inline void setCategory(int category) { this->semantic_info.est_category = category; }
+
+    void addSemanticInfo(int id, int est_category, float confidence);
+    Semantics& getSemanticInfo() { return semantic_info; }
+    inline int getCategory() { return this->semantic_info.est_category; }
+    inline int getId() { return this->semantic_info.id; }
+    void updateSemanticsChildren();
+    Semantics getAverageChildSemanticInfo() const;
+
+    std::istream& readData(std::istream& s);
+    std::ostream& writeData(std::ostream& s) const;
+    SemanticOcTreeNode* getChild(unsigned int i) {
+        if ((children != NULL) && (children[i] != NULL)) {
+            AbstractOcTreeNode* c = this->children[i];
+            SemanticOcTreeNode* soctn = static_cast<SemanticOcTreeNode*>(c);
+            return soctn;
+        } else {
+            return NULL;
+        }
+    }
+    """
 
 cdef class semantic_iterator_base:
     """
@@ -1335,7 +1338,8 @@ cdef class SemanticOcTree:
     def isNodeOccupied(self, node):
         if isinstance(node, SemanticOcTreeNode):
             if (<SemanticOcTreeNode>node).thisptr:
-                return self.thisptr.isNodeOccupied(deref((<SemanticOcTreeNode>node).thisptr))
+                # return self.thisptr.isNodeOccupied(deref((<SemanticOcTreeNode>node).thisptr))
+                return self.thisptr.isNodeOccupied(deref((<SemanticOcTreeNode>node).semoctree_ptr))
             else:
                 raise NullPointerException
         else:
@@ -1344,7 +1348,7 @@ cdef class SemanticOcTree:
     def isNodeAtThreshold(self, node):
         if isinstance(node, SemanticOcTreeNode):
             if (<SemanticOcTreeNode>node).thisptr:
-                return self.thisptr.isNodeAtThreshold(deref((<SemanticOcTreeNode>node).thisptr))
+                return self.thisptr.isNodeAtThreshold(deref((<SemanticOcTreeNode>node).semoctree_ptr))
             else:
                 raise NullPointerException
         else:
@@ -1735,26 +1739,26 @@ cdef class SemanticOcTree:
         return np.array([x, y, z], dtype=float)
 
     def expandNode(self, node):
-        self.thisptr.expandNode((<SemanticOcTreeNode>node).thisptr)
+        self.thisptr.expandNode((<SemanticOcTreeNode>node).semoctree_ptr)
 
     def createNodeChild(self, node, int idx):
         child = SemanticOcTreeNode()
-        child.thisptr = self.thisptr.createNodeChild((<SemanticOcTreeNode>node).thisptr, idx)
+        child.thisptr = self.thisptr.createNodeChild((<SemanticOcTreeNode>node).semoctree_ptr, idx)
         return child
 
     def getNodeChild(self, node, int idx):
         child = SemanticOcTreeNode()
-        child.thisptr = self.thisptr.getNodeChild((<SemanticOcTreeNode>node).thisptr, idx)
+        child.thisptr = self.thisptr.getNodeChild((<SemanticOcTreeNode>node).semoctree_ptr, idx)
         return child
 
     def isNodeCollapsible(self, node):
-        return self.thisptr.isNodeCollapsible((<SemanticOcTreeNode>node).thisptr)
+        return self.thisptr.isNodeCollapsible((<SemanticOcTreeNode>node).semoctree_ptr)
 
     def deleteNodeChild(self, node, int idx):
-        self.thisptr.deleteNodeChild((<SemanticOcTreeNode>node).thisptr, idx)
+        self.thisptr.deleteNodeChild((<SemanticOcTreeNode>node).semoctree_ptr, idx)
 
     def pruneNode(self, node):
-        return self.thisptr.pruneNode((<SemanticOcTreeNode>node).thisptr)
+        return self.thisptr.pruneNode((<SemanticOcTreeNode>node).semoctree_ptr)
 
     def dynamicEDT_generate(self, maxdist,
                             np.ndarray[DOUBLE_t, ndim=1] bbx_min,
