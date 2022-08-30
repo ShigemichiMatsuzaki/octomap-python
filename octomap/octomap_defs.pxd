@@ -77,6 +77,9 @@ cdef extern from "octomap/SemanticOcTree.h" namespace "octomap":
         float getLogOdds()
         void setLogOdds(float l)
         bool hasChildren()
+        void copyData(SemanticOcTreeNode &from_)
+        Semantics getSemanticInfo()
+
 
 
 cdef extern from "octomap/OcTreeKey.h" namespace "octomap":
@@ -243,8 +246,8 @@ cdef extern from "include_and_setting.h" namespace "octomap":
         bool writeBinary(ostream& s)
         bool isNodeOccupied(SemanticOcTreeNode& occupancyNode)
         bool isNodeAtThreshold(SemanticOcTreeNode& occupancyNode)
-        void insertPointCloud(Pointcloud& scan, point3d& sensor_origin,
-                              double maxrange, bool lazy_eval, bool discretize)
+        # void insertPointCloud(Pointcloud& scan, point3d& sensor_origin,
+        #                       double maxrange, bool lazy_eval, bool discretize)
         OccupancyOcTreeBase[SemanticOcTreeNode].tree_iterator begin_tree(unsigned char maxDepth) except +
         OccupancyOcTreeBase[SemanticOcTreeNode].tree_iterator end_tree() except +
         OccupancyOcTreeBase[SemanticOcTreeNode].leaf_iterator begin_leafs(unsigned char maxDepth) except +

@@ -929,7 +929,17 @@ cdef class Semantics:
     """
     cdef defs.Semantics *thisptr
     def __cinit__(self):
+        self.thisptr = new defs.Semantics()
         pass
+
+    def getId(self):
+        return self.thisptr.id
+
+    def getCategory(self):
+        return self.thisptr.est_category
+
+    def getConfidence(self):
+        return self.thisptr.confidence
 
 cdef class SemanticOcTreeNode(OcTreeNode):
     """
@@ -940,13 +950,21 @@ cdef class SemanticOcTreeNode(OcTreeNode):
     def __cinit__(self):
         self.semoctree_ptr = self.thisptr = new defs.SemanticOcTreeNode()
 
-    def copyData(self, SemanticOcTreeNode& from_):
+    def copyData(self, SemanticOcTreeNode from_):
         # OcTreeNode::copyData(from_)
         # this->semantic_info = from_.getSemanticInfo()
-        pass
+        self.semoctree_ptr.copyData(deref(from_.semoctree_ptr))
 
     def getSemanticInfo(self):
-        return self.semoctree_ptr.getSemanticInfo()
+        cdef defs.Semantics cpp_semantics = self.semoctree_ptr.getSemanticInfo()
+        semantics = Semantics()
+        semantics.thisptr.id = cpp_semantics.id
+        semantics.thisptr.est_category = cpp_semantics.est_category
+        semantics.thisptr.confidence = cpp_semantics.confidence
+        # semantics.est_category = cpp_semantics.getCategory()
+        # semantics.confidence = cpp_semantics.getConfidence()
+        # deref(semantics.thisptr) = self.semoctree_ptr.getSemanticInfo()
+        return semantics
 
     """
     inline void setSemanticInfo(Semantics s) { this->semantic_info = s; }
@@ -1081,7 +1099,18 @@ cdef class semantic_iterator_base:
             return (<defs.SemanticOcTreeNode>deref(deref(self.thisptr))).getValue()
         else:
             raise NullPointerException
+    
+    def getSemanticInfo(self):
+        cdef defs.Semantics cpp_semantics = (<defs.SemanticOcTreeNode>deref(deref(self.thisptr))).getSemanticInfo()
+        if self.__is_acceseable():
+            semantics = Semantics()
+            semantics.thisptr.id = cpp_semantics.id
+            semantics.thisptr.est_category = cpp_semantics.est_category
+            semantics.thisptr.confidence = cpp_semantics.confidence
 
+            return semantics
+        else:
+            raise NullPointerException
 
 cdef class semantic_tree_iterator(semantic_iterator_base):
     """
@@ -1376,6 +1405,7 @@ cdef class SemanticOcTree:
 
         cdef list occupied = []
         cdef list empty = []
+        cdef list occupied_color = []
         cdef semantic_leaf_iterator it
         cdef float size
         cdef int is_occupied
@@ -1385,10 +1415,14 @@ cdef class SemanticOcTree:
         cdef np.ndarray[DOUBLE_t, ndim=2] points
         cdef np.ndarray keep
         cdef int dimension
+
+        cdef np.ndarray[DOUBLE_t, ndim=1] stem_color = np.array([239, 210, 30, 128]) / 255
+        cdef np.ndarray[DOUBLE_t, ndim=1] non_stem_color = np.array([72, 134, 74, 128]) / 255
         for it in self.begin_leafs():
             is_occupied = self.isNodeOccupied(it)
             size = it.getSize()
             center = it.getCoordinate()
+            semantics = it.getSemanticInfo()
 
             dimension = max(1, round(it.getSize() / resolution))
             origin = center - (dimension / 2 - 0.5) * resolution
@@ -1397,52 +1431,59 @@ cdef class SemanticOcTree:
 
             if is_occupied:
                 occupied.append(points)
+                occupied_color.append(
+                    stem_color if semantics.getCategory() == 0 else non_stem_color)
             else:
                 empty.append(points)
 
         cdef np.ndarray[DOUBLE_t, ndim=2] occupied_arr
+        cdef np.ndarray[DOUBLE_t, ndim=2] occupied_color_arr
         cdef np.ndarray[DOUBLE_t, ndim=2] empty_arr
         if len(occupied) == 0:
             occupied_arr = np.zeros((0, 3), dtype=float)
+            occupied_color_arr = np.zeros((0, 4), dtype=float)
         else:
             occupied_arr = np.concatenate(occupied, axis=0)
+            occupied_color_arr = np.array(occupied_color)
+
         if len(empty) == 0:
             empty_arr = np.zeros((0, 3), dtype=float)
         else:
             empty_arr = np.concatenate(empty, axis=0)
-        return occupied_arr, empty_arr
 
-    def insertPointCloud(self,
-                         np.ndarray[DOUBLE_t, ndim=2] pointcloud,
-                         np.ndarray[DOUBLE_t, ndim=1] origin,
-                         maxrange=-1.,
-                         lazy_eval=False,
-                         discretize=False):
-        """
-        Integrate a Pointcloud (in global reference frame), parallelized with OpenMP.
+        return occupied_arr, empty_arr, occupied_color_arr
 
-        Special care is taken that each voxel in the map is updated only once, and occupied
-        nodes have a preference over free ones. This avoids holes in the floor from mutual
-        deletion.
-        :param pointcloud: Pointcloud (measurement endpoints), in global reference frame
-        :param origin: measurement origin in global reference frame
-        :param maxrange: maximum range for how long individual beams are inserted (default -1: complete beam)
-        :param : whether update of inner nodes is omitted after the update (default: false).
-        This speeds up the insertion, but you need to call updateInnerOccupancy() when done.
-        """
-        cdef defs.Pointcloud pc = defs.Pointcloud()
-        for p in pointcloud:
-            pc.push_back(<float>p[0],
-                         <float>p[1],
-                         <float>p[2])
+    # def insertPointCloud(self,
+    #                      np.ndarray[DOUBLE_t, ndim=2] pointcloud,
+    #                      np.ndarray[DOUBLE_t, ndim=1] origin,
+    #                      maxrange=-1.,
+    #                      lazy_eval=False,
+    #                      discretize=False):
+    #     """
+    #     Integrate a Pointcloud (in global reference frame), parallelized with OpenMP.
 
-        self.thisptr.insertPointCloud(pc,
-                                      defs.Vector3(<float>origin[0],
-                                                   <float>origin[1],
-                                                   <float>origin[2]),
-                                      <double?>maxrange,
-                                      bool(lazy_eval),
-                                      bool(discretize))
+    #     Special care is taken that each voxel in the map is updated only once, and occupied
+    #     nodes have a preference over free ones. This avoids holes in the floor from mutual
+    #     deletion.
+    #     :param pointcloud: Pointcloud (measurement endpoints), in global reference frame
+    #     :param origin: measurement origin in global reference frame
+    #     :param maxrange: maximum range for how long individual beams are inserted (default -1: complete beam)
+    #     :param : whether update of inner nodes is omitted after the update (default: false).
+    #     This speeds up the insertion, but you need to call updateInnerOccupancy() when done.
+    #     """
+    #     cdef defs.Pointcloud pc = defs.Pointcloud()
+    #     for p in pointcloud:
+    #         pc.push_back(<float>p[0],
+    #                      <float>p[1],
+    #                      <float>p[2])
+
+    #     self.thisptr.insertPointCloud(pc,
+    #                                   defs.Vector3(<float>origin[0],
+    #                                                <float>origin[1],
+    #                                                <float>origin[2]),
+    #                                   <double?>maxrange,
+    #                                   bool(lazy_eval),
+    #                                   bool(discretize))
 
     def begin_tree(self, maxDepth=0):
         itr = semantic_tree_iterator()
@@ -1800,3 +1841,50 @@ cdef class SemanticOcTree:
                                                            <float?>p[2]))
         else:
             raise NullPointerException
+
+    def insertPointCloudAndSemantics(
+        self,
+        np.ndarray[DOUBLE_t, ndim=2] pointcloud, 
+        np.ndarray[DOUBLE_t, ndim=1] origin,
+        id, 
+        category, 
+        confidence,
+        maxrange=-1, 
+        lazy_eval=False,
+        discretize=False):
+        """
+        Integrate a Pointcloud (in global reference frame) and update semantic information,
+        parallelized with OpenMP.
+
+        Special care is taken that each voxel in the map is updated only once, and occupied
+        nodes have a preference over free ones. This avoids holes in the floor from mutual
+        deletion.
+        :param pointcloud: Pointcloud (measurement endpoints), in global reference frame
+        :param origin: measurement origin in global reference frame
+        :param maxrange: maximum range for how long individual beams are inserted (default -1: complete beam)
+        :param : whether update of inner nodes is omitted after the update (default: false).
+        This speeds up the insertion, but you need to call updateInnerOccupancy() when done.
+        """
+        cdef defs.Pointcloud pc = defs.Pointcloud()
+        for p in pointcloud:
+            pc.push_back(<float>p[0],
+                         <float>p[1],
+                         <float>p[2])
+
+        self.thisptr.insertPointCloudAndSemantics(
+            pc,
+            defs.Vector3(<float>origin[0], <float>origin[1], <float>origin[2]),
+            <int?>id,
+            <int?>category,
+            <float>confidence,
+            <double?>maxrange,
+            bool(lazy_eval),
+            bool(discretize))
+
+    """ I may have to implement wrappers for the following functions
+    SemanticOcTreeNode* setNodeSemantics(OcTreeKey& key, int id, int est_category, float confidence)
+    SemanticOcTreeNode* setNodeSemantics(float x, float y, float z, int id, int est_category, float confidence) 
+    SemanticOcTreeNode* integrateNodeSemantics(OcTreeKey& key, int id, int est_category, float confidence)
+    SemanticOcTreeNode* integrateNodeSemantics(OcTreeKey& key)
+    SemanticOcTreeNode* integrateNodeSemantics(float x, float y, float z, int id, int est_category, float confidence) 
+    """
