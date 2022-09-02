@@ -1418,6 +1418,7 @@ cdef class SemanticOcTree:
 
         cdef np.ndarray[DOUBLE_t, ndim=1] stem_color = np.array([239, 210, 30, 128]) / 255
         cdef np.ndarray[DOUBLE_t, ndim=1] non_stem_color = np.array([72, 134, 74, 128]) / 255
+        cdef np.ndarray[DOUBLE_t, ndim=1] ground_color = np.array([155, 78, 48, 128]) / 255
         for it in self.begin_leafs():
             is_occupied = self.isNodeOccupied(it)
             size = it.getSize()
@@ -1431,8 +1432,15 @@ cdef class SemanticOcTree:
 
             if is_occupied:
                 occupied.append(points)
-                occupied_color.append(
-                    stem_color if semantics.getCategory() == 0 else non_stem_color)
+
+                if semantics.getCategory() == 0:
+                    color = stem_color
+                elif semantics.getCategory() == 1:
+                    color = non_stem_color
+                else:
+                    color = ground_color
+
+                occupied_color.append(color)
             else:
                 empty.append(points)
 
