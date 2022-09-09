@@ -515,7 +515,8 @@ cdef class OcTree:
             dimension = max(1, round(it.getSize() / resolution))
             origin = center - (dimension / 2 - 0.5) * resolution
             indices = np.column_stack(np.nonzero(np.ones((dimension, dimension, dimension))))
-            points = origin + indices * np.array(resolution)
+            # points = origin + indices * np.array(resolution)
+            points = np.array([center])
 
             if is_occupied:
                 occupied.append(points)
@@ -1428,7 +1429,8 @@ cdef class SemanticOcTree:
             dimension = max(1, round(it.getSize() / resolution))
             origin = center - (dimension / 2 - 0.5) * resolution
             indices = np.column_stack(np.nonzero(np.ones((dimension, dimension, dimension))))
-            points = origin + indices * np.array(resolution)
+            # points = origin + indices * np.array(resolution)
+            points = np.array([center])
 
             if is_occupied:
                 occupied.append(points)
@@ -1890,6 +1892,7 @@ cdef class SemanticOcTree:
             bool(discretize))
 
     """ I may have to implement wrappers for the following functions
+    -> Not really
     SemanticOcTreeNode* setNodeSemantics(OcTreeKey& key, int id, int est_category, float confidence)
     SemanticOcTreeNode* setNodeSemantics(float x, float y, float z, int id, int est_category, float confidence) 
     SemanticOcTreeNode* integrateNodeSemantics(OcTreeKey& key, int id, int est_category, float confidence)
